@@ -1,0 +1,43 @@
+version: '3'
+services:
+  metrics_emitter_1:
+    build:
+      context: .
+      args:
+        - IMAGE_VERSION=${IMAGE_VERSION:-2.7}
+        - INSTALL_ASYNC=no
+        - METRICS_FIFO_DIR=/tmp/namedPipes
+        - METRICS_FIFO_NAME=metricsNamedPipe
+    volumes:
+      - namedPipeVolume:/tmp/namedPipes
+      - ./src:/usr/src/app/src
+    command: python /usr/src/app/src/example.py
+
+  metrics_emitter_2:
+    build:
+      context: .
+      args:
+        - IMAGE_VERSION=${IMAGE_VERSION:-2.7}
+        - INSTALL_ASYNC=no
+        - METRICS_FIFO_DIR=/tmp/namedPipes
+        - METRICS_FIFO_NAME=metricsNamedPipe
+    volumes:
+      - namedPipeVolume:/tmp/namedPipes
+      - ./src:/usr/src/app/src
+    command: python /usr/src/app/src/example.py
+
+  metrics_collector:
+    build:
+      context: .
+      args:
+        - IMAGE_VERSION=${IMAGE_VERSION:-3.7}
+        - INSTALL_ASYNC=yes
+        - METRICS_FIFO_DIR=/tmp/namedPipes
+        - METRICS_FIFO_NAME=metricsNamedPipe
+    volumes:
+      - namedPipeVolume:/tmp/namedPipes
+      - ./src:/usr/src/app/src
+    command: python /usr/src/app/src/collector.py
+
+volumes:
+  namedPipeVolume:

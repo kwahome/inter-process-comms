@@ -8,7 +8,7 @@ import uuid
 
 import json
 
-from fifo import NamedPipe
+from uds_socket import UDS
 
 
 logger = logging.getLogger("metrics.agent")
@@ -19,9 +19,6 @@ if not logger.handlers:
     logger.addHandler(handler)
 logger.setLevel("DEBUG")
 logger.info("{}".format({"event": "metrics_emitter_start"}))
-
-
-fifo_file = NamedPipe().make_fifo()
 
 
 def timed(name):
@@ -86,13 +83,8 @@ def timed(name):
 
 def emit(metrics):
     try:
-        pipe = os.open(fifo_file, os.O_WRONLY | os.O_NONBLOCK)
         write_data = json.dumps(metrics)
         write_data = write_data.encode()
-        os.write(pipe, write_data)
-        os.close(pipe)
+        UDS().send(write_data)
     except OSError as e:
-        if e.errno == 6:  # device not configured
-            pass
-        else:
-            raise e
+        raise e
