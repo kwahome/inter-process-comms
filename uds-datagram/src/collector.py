@@ -1,12 +1,9 @@
-import os
-
-from sender import send_metrics_to_remote_storage
-from uds_socket import UDS
-
-
 import logging
 import asyncio
-from threading import Thread
+
+from sender import send_metrics_to_remote_storage
+from uds_socket import SimpleDGRAMSocket
+
 
 logger = logging.getLogger("metrics.collector")
 handler = logging.StreamHandler()
@@ -19,39 +16,38 @@ logger.setLevel("DEBUG")
 logger.info("{}".format({"event": "metrics_collector_start"}))
 
 
-def main():
-    thread = Thread(target=UDS(reader=True).receive())
-    thread.setDaemon(False)
-    thread.start()
-
-
-if __name__ == "__main__":
-    main()
-
-
-# async def collect_metrics():
-#     try:
-#         logger.info("{}".format({"event": "metrics_collector_read"}))
-#         while True:
-#             data = UDS(reader=True).receive()
-#             if len(data) == 0:
-#                 # End of the file
-#                 await asyncio.sleep(1)
-#                 continue
-#             logger.info(
-#                 "{}".format(
-#                     {
-#                         "event": "metrics_collector_print_data", "data": data
-#                     }
-#                 )
-#             )
-#             await send_metrics_to_remote_storage(data=data)
-#     except Exception as e:
-#         logger.debug("{}".format({"event": "metrics_collector_error", "error": str(e)}))
-#         raise e
+# def main():
+#     from threading import Thread
+#     thread = Thread(target=SimpleDGRAMSocket(reader=True).receive())
+#     thread.setDaemon(False)
+#     thread.start()
 #
 #
-# loop = asyncio.get_event_loop()
-# loop.run_until_complete(collect_metrics())
-# loop.close()
-# logger.info("{}".format({"event": "metrics_collector_end"}))
+# if __name__ == "__main__":
+#     main()
+
+
+async def collect_metrics():
+    try:
+        logger.info("{}".format({"event": "metrics_collector_read"}))
+        while True:
+            data = SimpleDGRAMSocket(server=True).receive()
+            logger.info(
+                "{}".format(
+                    {
+                        "event": "metrics_collector_print_data", "data": data
+                    }
+                )
+            )
+            await send_metrics_to_remote_storage(data=data)
+    except Exception as e:
+        logger.debug(
+            "{}".format({"event": "metrics_collector_error", "error": str(e)})
+        )
+        raise e
+
+
+loop = asyncio.get_event_loop()
+loop.run_until_complete(collect_metrics())
+loop.close()
+logger.info("{}".format({"event": "metrics_collector_end"}))

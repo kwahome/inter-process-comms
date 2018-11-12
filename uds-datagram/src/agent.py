@@ -1,14 +1,12 @@
-import os
 import logging
 import datetime
 import functools
 import time
 import socket
 import uuid
-
 import json
 
-from uds_socket import UDS
+from uds_socket import SimpleDGRAMSocket
 
 
 logger = logging.getLogger("metrics.agent")
@@ -85,6 +83,15 @@ def emit(metrics):
     try:
         write_data = json.dumps(metrics)
         write_data = write_data.encode()
-        UDS(name='agent').send(write_data)
-    except OSError as e:
-        raise e
+        SimpleDGRAMSocket().send(write_data)
+    except Exception as e:
+        logger.info(
+            "{}".format(
+                {
+                    "event": "UDS_socket_connection_refused_error",
+                    "error": e.__class__.__name__,
+                    "message": str(e)
+                }
+            )
+        )
+        # pass
