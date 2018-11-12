@@ -2,6 +2,7 @@
 import logging
 import socket
 import errno
+import os
 
 
 logger = logging.getLogger(__name__)
@@ -13,40 +14,56 @@ if not logger.handlers:
 logger.setLevel("DEBUG")
 logger.info("{}".format({"event": "metrics_emitter_start"}))
 
+BUFFER_SIZE = 4096
+
 
 class UDS:
     """
 
     """
 
-    def __init__(self, name="simple-socket.sock", _type=socket.SOCK_DGRAM):
+    def __init__(self, name="socket.sock", reader=False):
         self._name = name
-        self._socket = socket.socket(family=socket.AF_UNIX, type=_type)
-        #  \0 for Linux Abstract Socket Namespace
-        self._sock_addr = "/tmp/uds-socket-%s" % name
-        self.socket_bind()
+        self._family = socket.AF_UNIX
+        self._type = socket.SOCK_DGRAM
+        self._reader = reader
+        self._writer = not self._reader
+        # \0: Linux Abstract Socket Namespace
+        self.sock_addr = "\0/tmp/uds-%s" % self._name
+        self.sock = socket.socket(family=self._family, type=self._type)
+        self.initial()
+
+        # self.sock.setblocking(0)
+
+    def initial(self):
+        self.bind()
 
     @property
-    def socket_addr(self):
-        return self._sock_addr
+    def address(self):
+        return self.sock_addr
 
-    def socket_bind(self):
+    def bind(self):
         try:
-            self._socket.bind(self.socket_addr)
+            self.sock.bind(self.address)
         except OSError as e:
             if e.errno == errno.ENOSR:
-                self._socket.connect(self.socket_addr)
+                os.unlink(self.address)
+                self.bind()
             else:
                 raise e
 
+    def connect(self):
+        self.sock.connect(self.address)
+
     def receive(self):
         while True:
-            data, _ = self._socket.recvfrom(1024)
+            data, address = self.sock.recvfrom(BUFFER_SIZE)
             logger.info(
                 "{}".format(
                     {
                         "event": "UDS_socket_receive",
-                        "data": data
+                        "data": data,
+                        "sender": address
                     }
                 )
             )
@@ -60,4 +77,4 @@ class UDS:
                 }
             )
         )
-        self._socket.sendto(data, self.socket_addr)
+        self.sock.sendto(data, self.address)

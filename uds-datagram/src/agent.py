@@ -85,6 +85,6 @@ def emit(metrics):
     try:
         write_data = json.dumps(metrics)
         write_data = write_data.encode()
-        UDS().send(write_data)
+        UDS(name='agent').send(write_data)
     except OSError as e:
         raise e
