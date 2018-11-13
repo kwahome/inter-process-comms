@@ -18,13 +18,12 @@ logger.info("{}".format({"event": "metrics_collector_start"}))
 
 # def main():
 #     from threading import Thread
-#     thread = Thread(target=SimpleDGRAMSocket(reader=True).receive())
+#     thread = Thread(target=SimpleDGRAMSocket().receive())
 #     thread.setDaemon(False)
 #     thread.start()
 #
 #
-# if __name__ == "__main__":
-#     main()
+# main()
 
 
 async def collect_metrics():

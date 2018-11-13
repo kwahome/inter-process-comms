@@ -80,18 +80,6 @@ def timed(name):
 
 
 def emit(metrics):
-    try:
-        write_data = json.dumps(metrics)
-        write_data = write_data.encode()
-        SimpleDGRAMSocket().send(write_data)
-    except Exception as e:
-        logger.info(
-            "{}".format(
-                {
-                    "event": "UDS_socket_connection_refused_error",
-                    "error": e.__class__.__name__,
-                    "message": str(e)
-                }
-            )
-        )
-        # pass
+    write_data = json.dumps(metrics)
+    write_data = write_data.encode()
+    SimpleDGRAMSocket().send(write_data)

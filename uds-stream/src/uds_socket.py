@@ -14,53 +14,66 @@ if not logger.handlers:
 logger.setLevel("DEBUG")
 logger.info("{}".format({"event": "metrics_emitter_start"}))
 
+
 BUFFER_SIZE = 4096
+SOCK_NAME = os.getenv("SOCKET_NAME", "metrics")
+SERVER_ADDR = "/tmp/uds/%s.sock" % SOCK_NAME
 
 
-class UDS:
-    """
-
-    """
-
-    def __init__(self, name="socket.sock", reader=False):
-        self._name = name
+class DGRAMSocket:
+    def __init__(self):
         self._family = socket.AF_UNIX
-        self._type = socket.SOCK_DGRAM
-        self._reader = reader
-        self._writer = not self._reader
-        # \0: Linux Abstract Socket Namespace
-        self.sock_addr = "\0/tmp/uds-%s" % self._name
-        self.sock = socket.socket(family=self._family, type=self._type)
-        self.initial()
-
-        # self.sock.setblocking(0)
-
-    def initial(self):
-        if self._reader:
-            self.bind()
-        if self._writer:
-            self.bind()
+        self._type = socket.SOCK_STREAM
+        self._sock = socket.socket(family=self._family, type=self._type)
 
     @property
-    def address(self):
-        return self.sock_addr
+    def socket(self):
+        return self._sock
+
+
+class Client:
+    """
+    Datagram socket client
+    """
+    def __init__(self):
+        self.socket = DGRAMSocket().socket
+
+    def send(self, data, recp=SERVER_ADDR):
+        logger.info(
+            "{}".format(
+                {
+                    "event": "UDS_socket_send",
+                    "data": data,
+                    "recipient": recp
+                }
+            )
+        )
+        self.socket.sendto(data, recp)
+
+
+class Server:
+    """
+    Datagram socket server
+    """
+
+    def __init__(self):
+        self.socket = DGRAMSocket().socket
+        self.bind()
+        self.socket.listen(1)
 
     def bind(self):
         try:
-            self.sock.bind(self.address)
+            self.socket.bind(SERVER_ADDR)
         except OSError as e:
-            if e.errno == errno.ENOSR:
-                os.unlink(self.address)
+            if e.errno == errno.EADDRINUSE:
+                os.unlink(SERVER_ADDR)
                 self.bind()
             else:
                 raise e
 
-    def connect(self):
-        self.sock.connect(self.address)
-
     def receive(self):
         while True:
-            data, address = self.sock.recvfrom(BUFFER_SIZE)
+            data, address = self.socket.recvfrom(BUFFER_SIZE)
             logger.info(
                 "{}".format(
                     {
@@ -71,13 +84,88 @@ class UDS:
                 )
             )
 
+
+class SimpleDGRAMSocket:
+    """
+    Alternative implementation with both client & server
+    """
+    def __init__(self, name="simple", server=False):
+        self._name = name
+        self._address = "/tmp/uds/%s.sock" % name
+        self._family = socket.AF_UNIX
+        self._type = socket.SOCK_STREAM
+        self._socket = socket.socket(family=self._family, type=self._type)
+        if server:
+            self.bind()
+            self.listen()
+        else:
+            self.connect()
+
+    @property
+    def address(self):
+        return self._address
+
+    @property
+    def name(self):
+        return self._name
+
+    @property
+    def socket(self):
+        return self._socket
+
+    def bind(self):
+        try:
+            self.socket.bind(self.address)
+        except OSError as e:
+            if e.errno == errno.EADDRINUSE:
+                os.unlink(self.address)
+                self.bind()
+            else:
+                raise e
+
+    def listen(self):
+        self.socket.listen(1)
+
+    def connect(self):
+        self.socket.connect(self.address)
+
+    def receive(self):
+        connection, address = self.socket.accept()
+        data = connection.recv(BUFFER_SIZE)
+        logger.info(
+            "{}".format(
+                {
+                    "event": "UDS_socket_receive",
+                    "data": data,
+                    "sender": address
+                }
+            )
+        )
+
     def send(self, data):
         logger.info(
             "{}".format(
                 {
                     "event": "UDS_socket_send",
-                    "data": data
+                    "data": data,
+                    "recipient": self.address
                 }
             )
         )
-        self.sock.sendto(data, self.address)
+        try:
+            self.socket.sendall(data)
+        except Exception as e:
+            # no way to catch ConnectionRefusedError in Python 2 as it was
+            # added in Python 3 builtins hence the workaround with errno
+            if getattr(e, 'errno', None) == 111:
+                logger.info(
+                    "{}".format(
+                        {
+                            "event": "UDS_socket_connection_refused_error",
+                            "error": e.__class__.__name__,
+                            "message": str(e)
+                        }
+                    )
+                )
+            else:
+                raise e

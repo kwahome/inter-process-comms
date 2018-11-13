@@ -9,7 +9,7 @@ services:
         - METRICS_FIFO_DIR=/tmp/namedPipes
         - METRICS_FIFO_NAME=metricsNamedPipe
     volumes:
-      - namedPipeVolume:/tmp/namedPipes
+      - socketVolume:/tmp/uds
       - ./src:/usr/src/app/src
     command: python /usr/src/app/src/example.py
 
@@ -22,7 +22,7 @@ services:
         - METRICS_FIFO_DIR=/tmp/namedPipes
         - METRICS_FIFO_NAME=metricsNamedPipe
     volumes:
-      - namedPipeVolume:/tmp/namedPipes
+      - socketVolume:/tmp/uds
       - ./src:/usr/src/app/src
     command: python /usr/src/app/src/example.py
 
@@ -35,9 +35,9 @@ services:
         - METRICS_FIFO_DIR=/tmp/namedPipes
         - METRICS_FIFO_NAME=metricsNamedPipe
     volumes:
-      - namedPipeVolume:/tmp/namedPipes
+      - socketVolume:/tmp/uds
       - ./src:/usr/src/app/src
     command: python /usr/src/app/src/collector.py
 
 volumes:
-  namedPipeVolume:
+  socketVolume:

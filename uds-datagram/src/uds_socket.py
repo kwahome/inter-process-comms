@@ -96,6 +96,7 @@ class SimpleDGRAMSocket:
         self._socket = socket.socket(family=self._family, type=self._type)
         if server:
             self.bind()
+        # self._socket.setblocking(0)
 
     @property
     def address(self):
@@ -141,4 +142,20 @@ class SimpleDGRAMSocket:
                 }
             )
         )
-        self.socket.sendto(data, self.address)
+        try:
+            self.socket.sendto(data, self.address)
+        except Exception as e:
+            # no way to catch ConnectionRefusedError in Python 2 as it was
+            # added in Python 3 builtins hence the workaround with errno
+            if getattr(e, 'errno', None) == 111:
+                logger.info(
+                    "{}".format(
+                        {
+                            "event": "UDS_socket_connection_refused_error",
+                            "error": e.__class__.__name__,
+                            "message": str(e)
+                        }
+                    )
+                )
+            else:
+                raise e
